@@ -234,6 +234,58 @@ inline ggml_webgpu_processed_shader ggml_webgpu_preprocess_generic_shader(
     return result;
 }
 
+/** MulMatVec **/
+
+struct ggml_webgpu_mul_mat_vec_shader_lib_context {
+    ggml_type src0_type;
+    ggml_type src1_type;
+    bool      vec4;
+};
+
+inline ggml_webgpu_processed_shader ggml_webgpu_preprocess_mul_mat_vec_shader(
+    pre_wgsl::Preprocessor &                           preprocessor,
+    const char *                                       shader_src,
+    const ggml_webgpu_mul_mat_vec_shader_lib_context & context) {
+    std::vector<std::string> defines;
+    std::string              variant = "mul_mat_vec";
+
+    if (context.src0_type == GGML_TYPE_F32 && context.src1_type == GGML_TYPE_F32) {
+        if (context.vec4) {
+            defines.push_back("MUL_MAT_VEC_F32_F32_VEC");
+            variant += "_f32_f32_vec";
+        } else {
+            defines.push_back("MUL_MAT_VEC_F32_F32");
+            variant += "_f32_f32";
+        }
+    } else if (context.src0_type == GGML_TYPE_F16 && context.src1_type == GGML_TYPE_F32) {
+        if (context.vec4) {
+            defines.push_back("MUL_MAT_VEC_F16_F32_VEC");
+            variant += "_f16_f32_vec";
+        } else {
+            defines.push_back("MUL_MAT_VEC_F16_F32");
+            variant += "_f16_f32";
+        }
+    } else if (context.src0_type == GGML_TYPE_F16 && context.src1_type == GGML_TYPE_F16) {
+        if (context.vec4) {
+            defines.push_back("MUL_MAT_VEC_F16_F16_VEC");
+            variant += "_f16_f16_vec";
+        } else {
+            defines.push_back("MUL_MAT_VEC_F16_F16");
+            variant += "_f16_f16";
+        }
+    } else if (context.src0_type == GGML_TYPE_Q4_0 && context.src1_type == GGML_TYPE_F32 && !context.vec4) {
+        defines.push_back("MUL_MAT_VEC_Q4_0_F32");
+        variant += "_q4_0_f32";
+    } else {
+        GGML_ABORT("Unsupported types for mul_mat_vec shader");
+    }
+
+    ggml_webgpu_processed_shader result;
+    result.wgsl    = preprocessor.preprocess(shader_src, defines);
+    result.variant = variant;
+    return result;
+}
+
 /** Pad **/
 
 struct ggml_webgpu_pad_pipeline_key {
